@@ -1,0 +1,133 @@
+.detail-post-card {
+  margin-bottom: 0;
+}
+
+.detail-post-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.detail-caption {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  padding: 14px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  border-left: 3px solid var(--color-accent);
+}
+
+.detail-post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.meta-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.meta-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* Sentiment */
+.sentiment-summary-grid {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 24px;
+  align-items: center;
+}
+
+.sentiment-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sentiment-track {
+  height: 6px;
+  background: var(--color-surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.sentiment-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+
+/* Topics */
+.topics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.topic-item {
+  display: grid;
+  grid-template-columns: 24px 1fr 100px 36px;
+  align-items: center;
+  gap: 10px;
+}
+
+.topic-rank {
+  width: 22px; height: 22px;
+  background: var(--color-surface-3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.topic-name {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.topic-bar-track {
+  height: 6px;
+  background: var(--color-surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.topic-bar-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+
+.topic-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-accent-light);
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .sentiment-summary-grid { grid-template-columns: 1fr; }
+}
