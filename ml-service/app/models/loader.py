@@ -2,10 +2,17 @@
 Model loader — lazy singleton loader for all NLP models.
 Loads on startup to avoid cold-start delay on first request.
 """
+import sys
+
+# Force UTF-8 output on Windows to avoid UnicodeEncodeError with emoji in cp1252
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 from typing import Optional
-from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
+from transformers import pipeline
 from sentence_transformers import SentenceTransformer
 import torch
+
 
 class ModelLoader:
     _sentiment_pipeline = None
@@ -15,51 +22,53 @@ class ModelLoader:
     @classmethod
     def load_all(cls):
         """Load all models. Called once at app startup."""
+        print("[ML] Loading NLP models...")
         cls._load_sentiment()
         cls._load_sentence_model()
         cls._loaded = True
+        print("[ML] All models loaded.")
 
     @classmethod
     def _load_sentiment(cls):
         """
-        Load IndoBERT fine-tuned for sentiment classification.
-        Primary model: mdhuggins/indobert-sentiment
-        Fallback:      distilbert/distilbert-base-multilingual-cased (if primary fails)
+        Load sentiment classification model.
+        Primary:  mdhuggins/indobert-sentiment
+        Fallback: lxyuan/distilbert-base-multilingual-cased-sentiments-student
         """
-        try:
-            print("Loading sentiment model: mdhuggins/indobert-sentiment...")
-            cls._sentiment_pipeline = pipeline(
-                "text-classification",
-                model="mdhuggins/indobert-sentiment",
-                tokenizer="mdhuggins/indobert-sentiment",
-                device=0 if torch.cuda.is_available() else -1,
-                truncation=True,
-                max_length=512,
-            )
-            print("  ✅  Sentiment model loaded.")
-        except Exception as e:
-            print(f"  ⚠️  Primary sentiment model failed ({e}). Loading multilingual fallback...")
-            cls._sentiment_pipeline = pipeline(
-                "text-classification",
-                model="lxyuan/distilbert-base-multilingual-cased-sentiments-student",
-                tokenizer="lxyuan/distilbert-base-multilingual-cased-sentiments-student",
-                device=0 if torch.cuda.is_available() else -1,
-                truncation=True,
-                max_length=512,
-            )
-            print("  ✅  Fallback sentiment model loaded.")
+        primary = "mdhuggins/indobert-sentiment"
+        fallback = "lxyuan/distilbert-base-multilingual-cased-sentiments-student"
+
+        for model_id in (primary, fallback):
+            try:
+                print(f"[ML] Loading sentiment model: {model_id}...")
+                cls._sentiment_pipeline = pipeline(
+                    "text-classification",
+                    model=model_id,
+                    tokenizer=model_id,
+                    device=0 if torch.cuda.is_available() else -1,
+                    truncation=True,
+                    max_length=512,
+                )
+                print(f"[ML] Sentiment model loaded OK: {model_id}")
+                return
+            except Exception as e:
+                print(f"[ML] Model '{model_id}' failed: {type(e).__name__}: {str(e)[:120]}")
+                if model_id == fallback:
+                    raise RuntimeError(
+                        "Both primary and fallback sentiment models failed to load. "
+                        "Check your internet connection or Hugging Face token."
+                    ) from e
 
     @classmethod
     def _load_sentence_model(cls):
         """Load multilingual sentence embeddings for BERTopic."""
+        model_id = "paraphrase-multilingual-MiniLM-L12-v2"
         try:
-            print("  📦  Loading sentence embedding model...")
-            cls._sentence_model = SentenceTransformer(
-                "paraphrase-multilingual-MiniLM-L12-v2"
-            )
-            print("  ✅  Sentence model loaded.")
+            print(f"[ML] Loading sentence embedding model: {model_id}...")
+            cls._sentence_model = SentenceTransformer(model_id)
+            print("[ML] Sentence model loaded OK.")
         except Exception as e:
-            print(f"  ⚠️  Sentence model failed to load: {e}")
+            print(f"[ML] Sentence model failed to load: {e}")
             cls._sentence_model = None
 
     @classmethod
@@ -69,7 +78,7 @@ class ModelLoader:
         return cls._sentiment_pipeline
 
     @classmethod
-    def get_sentence_model(cls):
+    def get_sentence_model(cls) -> Optional[SentenceTransformer]:
         return cls._sentence_model
 
     @classmethod
