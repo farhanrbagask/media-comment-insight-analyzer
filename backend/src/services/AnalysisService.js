@@ -2,7 +2,6 @@ const axios = require('axios');
 const db = require('../config/db');
 const PostService = require('./PostService');
 const CommentService = require('./CommentService');
-const SocialMediaService = require('./social-media/SocialMediaService');
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
@@ -141,17 +140,43 @@ const deleteAnalysis = async (id) => {
 };
 
 /**
- * Main orchestrator — runs the full analysis pipeline.
- * @param {string} url        - The post URL
+ * Start analysis from pre-parsed CSV comments (skips social-media fetching).
+ * Called by the import confirm endpoint.
+ *
+ * @param {number} postId    - Existing post ID in DB
+ * @param {Array}  comments  - Cleaned comment objects from CsvImportService
+ * @returns {{ analysis: object }}
+ */
+const startFromComments = async (postId, comments) => {
+  const analysis = await createAnalysisRecord(postId);
+
+  // Mark previous analyses as not-latest
+  await db.query(
+    `UPDATE analyses SET is_latest = false WHERE post_id = $1 AND id != $2`,
+    [postId, analysis.id]
+  );
+
+  // Fire-and-forget — client polls /api/analyses/:id for status
+  _runPipelineFromComments(postId, analysis.id, comments).catch((err) => {
+    console.error(`[Import pipeline] Error for analysis ${analysis.id}:`, err.message);
+  });
+
+  return { analysis };
+};
+
+/**
+ * (Legacy) Start analysis by fetching from a social-media URL.
+ * Still used by the re-analyze feature on existing DB posts.
+ *
+ * @param {string} url
  * @param {object} validation - { platform, postId }
- * @param {number} existingPostId - If re-analyzing, the post ID already in DB
+ * @param {number} existingPostId
  */
 const startAnalysis = async (url, validation, existingPostId = null) => {
   let post;
   let analysis;
 
   try {
-    // 1. Create or retrieve post record
     if (existingPostId) {
       post = await PostService.findById(existingPostId);
     } else {
@@ -162,18 +187,16 @@ const startAnalysis = async (url, validation, existingPostId = null) => {
       });
     }
 
-    // 2. Create analysis record (pending)
     analysis = await createAnalysisRecord(post.id);
 
-    // 3. Mark previous analyses as not-latest
     await db.query(
       `UPDATE analyses SET is_latest = false WHERE post_id = $1 AND id != $2`,
       [post.id, analysis.id]
     );
 
-    // Run pipeline asynchronously (fire and forget — client polls status)
-    _runPipeline(post, analysis.id, url, validation).catch((err) => {
-      console.error(`Pipeline error for analysis ${analysis.id}:`, err.message);
+    // Re-analyze: run ML on comments already stored in the DB
+    _runPipelineFromDb(post, analysis.id).catch((err) => {
+      console.error(`[Reanalyze pipeline] Error for analysis ${analysis.id}:`, err.message);
     });
 
     return { post, analysis };
@@ -183,112 +206,135 @@ const startAnalysis = async (url, validation, existingPostId = null) => {
 };
 
 /**
- * Internal pipeline runner (async).
+ * Shared helper — runs the ML + save pipeline given a list of raw comment texts.
+ * Used by both the CSV import flow and the re-analyze (from DB) flow.
+ *
+ * @param {number} postId
+ * @param {number} analysisId
+ * @param {{ rawText: string, platformCommentId?: string, username?: string, publishedAt?: string }[]} commentObjects
  */
-const _runPipeline = async (post, analysisId, url, validation) => {
-  try {
-    // ── FETCHING ──────────────────────────────────────────────────────────────
-    await updateStatus(analysisId, 'fetching');
+const _runMlAndSave = async (postId, analysisId, commentObjects) => {
+  await updateStatus(analysisId, 'processing');
 
-    const fetchedData = await SocialMediaService.fetchPost(validation.platform, url, validation.postId);
+  const rawTexts = commentObjects.map(c => c.rawText);
 
-    // Update post metadata with fresh data
-    await PostService.update(post.id, {
-      author: fetchedData.author,
-      caption: fetchedData.caption,
-      published_at: fetchedData.publishedAt,
-      like_count: fetchedData.likeCount,
-      comment_count: fetchedData.commentCount,
-      thumbnail_url: fetchedData.thumbnailUrl,
-    });
+  // Call ML Service
+  const mlResponse = await axios.post(
+    `${ML_SERVICE_URL}/analyze`,
+    { comments: rawTexts },
+    { timeout: 120_000 }
+  );
+  const mlData = mlResponse.data;
 
+  // Build enriched comments
+  const enrichedComments = commentObjects.map((c, i) => ({
+    platformCommentId: c.platformCommentId || null,
+    username:          c.username          || null,
+    rawText:           c.rawText,
+    processedText:     mlData.comments[i]?.processed_text || c.rawText,
+    publishedAt:       c.publishedAt       || null,
+    likeCount:         0,
+    sentiment:         mlData.comments[i]?.sentiment || 'neutral',
+    sentimentScore:    mlData.comments[i]?.score     || 0,
+    topic:             mlData.comments[i]?.topic     || null,
+  }));
+
+  await CommentService.bulkInsert(postId, analysisId, enrichedComments);
+
+  const total         = enrichedComments.length;
+  const positiveCount = enrichedComments.filter(c => c.sentiment === 'positive').length;
+  const neutralCount  = enrichedComments.filter(c => c.sentiment === 'neutral').length;
+  const negativeCount = enrichedComments.filter(c => c.sentiment === 'negative').length;
+
+  // Save keywords
+  for (const kw of mlData.keywords ?? []) {
     await db.query(
-      `UPDATE analyses SET fetched_at = NOW(), updated_at = NOW() WHERE id = $1`,
-      [analysisId]
+      `INSERT INTO keywords (analysis_id, keyword, frequency, percentage) VALUES ($1,$2,$3,$4)`,
+      [analysisId, kw.keyword, kw.frequency, kw.percentage || 0]
+    );
+  }
+
+  // Save topics
+  for (const t of mlData.topics ?? []) {
+    await db.query(
+      `INSERT INTO topics (analysis_id, topic, frequency, percentage) VALUES ($1,$2,$3,$4)`,
+      [analysisId, t.topic, t.frequency, t.percentage || 0]
+    );
+  }
+
+  // Mark analysis as completed
+  await db.query(
+    `UPDATE analyses SET
+       status = 'completed',
+       total_comments       = $1,
+       positive_count       = $2,
+       neutral_count        = $3,
+       negative_count       = $4,
+       positive_percentage  = $5,
+       neutral_percentage   = $6,
+       negative_percentage  = $7,
+       generated_insight    = $8,
+       updated_at           = NOW()
+     WHERE id = $9`,
+    [
+      total,
+      positiveCount, neutralCount, negativeCount,
+      total > 0 ? ((positiveCount / total) * 100).toFixed(2) : 0,
+      total > 0 ? ((neutralCount  / total) * 100).toFixed(2) : 0,
+      total > 0 ? ((negativeCount / total) * 100).toFixed(2) : 0,
+      JSON.stringify(mlData.insight),
+      analysisId,
+    ]
+  );
+};
+
+/**
+ * Pipeline: CSV import path — comments come directly from CsvImportService.
+ */
+const _runPipelineFromComments = async (postId, analysisId, commentObjects) => {
+  try {
+    if (!commentObjects.length) {
+      await updateStatus(analysisId, 'failed', 'No valid comments to analyze.');
+      return;
+    }
+    await _runMlAndSave(postId, analysisId, commentObjects);
+  } catch (err) {
+    const message = err.response?.data?.detail || err.message || 'Pipeline failed.';
+    await updateStatus(analysisId, 'failed', message);
+    throw err;
+  }
+};
+
+/**
+ * Pipeline: Re-analyze path — load comments from the DB and re-run ML.
+ * This keeps re-analyze working without needing the original CSV.
+ */
+const _runPipelineFromDb = async (post, analysisId) => {
+  try {
+    // Load all comments for the most recent completed analysis of this post
+    const { rows } = await db.query(
+      `SELECT raw_text, platform_comment_id, username, published_at
+       FROM comments
+       WHERE post_id = $1 AND is_skipped = false
+       ORDER BY id ASC`,
+      [post.id]
     );
 
-    const rawComments = fetchedData.comments || [];
-
-    if (rawComments.length === 0) {
-      await updateStatus(analysisId, 'failed', 'No comments found on this post.');
+    if (!rows.length) {
+      await updateStatus(analysisId, 'failed', 'No stored comments found to re-analyze.');
       return;
     }
 
-    // ── PROCESSING ────────────────────────────────────────────────────────────
-    await updateStatus(analysisId, 'processing');
-
-    // Call ML service
-    const mlResponse = await axios.post(`${ML_SERVICE_URL}/analyze`, {
-      comments: rawComments.map(c => c.text),
-    }, { timeout: 120000 });
-
-    const mlData = mlResponse.data;
-
-    // ── SAVE RESULTS ──────────────────────────────────────────────────────────
-    const enrichedComments = rawComments.map((c, i) => ({
-      platformCommentId: c.commentId,
-      username: c.username,
-      rawText: c.text,
-      processedText: mlData.comments[i]?.processed_text || c.text,
-      publishedAt: c.publishedAt,
-      likeCount: c.likeCount,
-      sentiment: mlData.comments[i]?.sentiment || 'neutral',
-      sentimentScore: mlData.comments[i]?.score || 0,
-      topic: mlData.comments[i]?.topic || null,
+    const commentObjects = rows.map(r => ({
+      rawText:           r.raw_text,
+      platformCommentId: r.platform_comment_id,
+      username:          r.username,
+      publishedAt:       r.published_at,
     }));
 
-    await CommentService.bulkInsert(post.id, analysisId, enrichedComments);
-
-    // Aggregate sentiment statistics
-    const total = enrichedComments.length;
-    const positiveCount = enrichedComments.filter(c => c.sentiment === 'positive').length;
-    const neutralCount  = enrichedComments.filter(c => c.sentiment === 'neutral').length;
-    const negativeCount = enrichedComments.filter(c => c.sentiment === 'negative').length;
-
-    // Save keywords
-    if (mlData.keywords?.length) {
-      for (const kw of mlData.keywords) {
-        await db.query(
-          `INSERT INTO keywords (analysis_id, keyword, frequency, percentage) VALUES ($1,$2,$3,$4)`,
-          [analysisId, kw.keyword, kw.frequency, kw.percentage || 0]
-        );
-      }
-    }
-
-    // Save topics
-    if (mlData.topics?.length) {
-      for (const t of mlData.topics) {
-        await db.query(
-          `INSERT INTO topics (analysis_id, topic, frequency, percentage) VALUES ($1,$2,$3,$4)`,
-          [analysisId, t.topic, t.frequency, t.percentage || 0]
-        );
-      }
-    }
-
-    // Update analysis record to completed
-    await db.query(
-      `UPDATE analyses SET
-         status = 'completed',
-         total_comments = $1,
-         positive_count = $2, neutral_count = $3, negative_count = $4,
-         positive_percentage = $5, neutral_percentage = $6, negative_percentage = $7,
-         generated_insight = $8,
-         updated_at = NOW()
-       WHERE id = $9`,
-      [
-        total,
-        positiveCount, neutralCount, negativeCount,
-        total > 0 ? ((positiveCount / total) * 100).toFixed(2) : 0,
-        total > 0 ? ((neutralCount  / total) * 100).toFixed(2) : 0,
-        total > 0 ? ((negativeCount / total) * 100).toFixed(2) : 0,
-        JSON.stringify(mlData.insight),
-        analysisId,
-      ]
-    );
-
+    await _runMlAndSave(post.id, analysisId, commentObjects);
   } catch (err) {
-    let message = err.message || 'Pipeline failed.';
-    if (err.response?.data?.detail) message = err.response.data.detail;
+    const message = err.response?.data?.detail || err.message || 'Re-analyze failed.';
     await updateStatus(analysisId, 'failed', message);
     throw err;
   }
@@ -301,4 +347,5 @@ module.exports = {
   listAnalyses,
   deleteAnalysis,
   startAnalysis,
+  startFromComments,
 };
