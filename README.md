@@ -1,61 +1,80 @@
 # 📊 Media Comment Insight Analyzer
 
-> Aplikasi web yang mengambil komentar dari postingan Instagram/TikTok, lalu menganalisisnya secara otomatis menggunakan AI — mulai dari sentimen, topik, hingga kata kunci yang sering muncul.
+> Aplikasi web untuk menganalisis komentar media sosial (Instagram & TikTok) dari file CSV hasil ekspor tools scraping (seperti **IG Lead Scrapper**), secara otomatis menggunakan AI — mencakup analisis sentimen berbahasa Indonesia, pengelompokan topik, ekstraksi kata kunci, hingga ringkasan insight dan dashboard analitik.
 
 ---
 
 ## 🧠 Apa yang Dilakukan Aplikasi Ini?
 
-Bayangkan kamu memiliki sebuah postingan media sosial dengan ratusan komentar. Membacanya satu per satu tentu melelahkan. Aplikasi ini hadir untuk membantu:
+Menganalisis ratusan hingga ribuan komentar media sosial secara manual tentu memakan waktu. Aplikasi ini menyediakan alur berbasis CSV:
 
-1. **Mengambil komentar** dari URL postingan Instagram atau TikTok secara otomatis.
-2. **Menganalisis sentimen** — apakah komentar tersebut positif, negatif, atau netral?
-3. **Mengelompokkan topik** — apa saja hal yang paling banyak dibicarakan?
-4. **Mengekstrak kata kunci** — kata apa yang paling sering muncul?
-5. **Menampilkan hasil** dalam bentuk grafik dan visualisasi yang mudah dipahami.
+1. **Upload CSV**: Pengguna mengunggah file CSV hasil ekspor komentar (mendukung kolom `commentText`, `userName`, `commentId`, `date`, `userId`, `profileUrl`).
+2. **Validasi & Data Cleaning**: Sistem otomatis mendeteksi baris kosong, komentar whitespace, duplikasi komentar, dan menormalisasi format tanggal.
+3. **Preview & Ringkasan**: Pengguna melihat ringkasan baris valid, kosong, duplikat, dan data yang dilewati sebelum analisis dijalankan.
+4. **Analisis AI**: Komentar valid dikirim ke ML Service (FastAPI) untuk:
+   - **Analisis Sentimen**: IndoBERT untuk klasifikasi positif, netral, atau negatif.
+   - **Topic Modeling**: BERTopic untuk mengelompokkan topik-topik utama pembicaraan.
+   - **Keyword Extraction**: TF-IDF untuk menemukan kata kunci yang paling dominan.
+5. **Dashboard & Visualisasi**: Hasil ditampilkan pada detail postingan serta dashboard analitik agregat (distribusi sentimen, tren, topik teratas, dsb).
+6. **Re-analisis**: Analisis ulang kapan saja langsung dari data komentar yang telah tersimpan di database tanpa perlu mengunggah ulang file CSV.
 
 ---
 
 ## 🏗️ Arsitektur Sistem
 
-Aplikasi ini terdiri dari **4 komponen utama** yang berjalan secara bersamaan:
-
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        BROWSER                              │
 │              React Frontend  (port 5173)                    │
-│         Tampilan UI, form input URL, grafik hasil           │
+│   Upload CSV, Data Preview, Cleaning Summary, Visualisasi   │
 └──────────────────────┬──────────────────────────────────────┘
-                       │ HTTP Request (JSON)
+                       │ HTTP Request (multipart/form-data & JSON)
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      BACKEND                                │
-│           Node.js + Express  (port 3001)                    │
-│    Menerima request, cek login, simpan ke database,         │
-│          teruskan ke ML Service                             │
+│           Node.js + Express 5  (port 3001)                  │
+│  - CsvImportService (parse, clean, dedup, validasi)         │
+│  - In-memory Import Store dengan UUID Token & auto-expire   │
+│  - PostgreSQL persistence & orkestrasi pipeline ML          │
 └───────────┬─────────────────────────┬───────────────────────┘
             │                         │
             ▼                         ▼
 ┌─────────────────────┐   ┌───────────────────────────────────┐
 │     DATABASE        │   │          ML SERVICE               │
-│    PostgreSQL       │   │    Python + FastAPI  (port 8000)   │
-│  Menyimpan semua    │   │  Menjalankan model AI untuk        │
-│  data hasil analisis│   │  sentimen, topik, & kata kunci     │
-└─────────────────────┘   └───────────────────────────────────┘
+│  PostgreSQL (5432)  │   │    Python + FastAPI  (port 8000)   │
+│  posts, comments,   │   │  Model IndoBERT, BERTopic, TF-IDF │
+│  analyses, keywords,│   │  untuk pemrosesan teks Indonesia  │
+│  topics             │   └───────────────────────────────────┘
+└─────────────────────┘
 ```
 
 | Komponen | Teknologi | Port |
 |---|---|---|
-| Frontend | React 19 + Vite + TypeScript | `5173` |
-| Backend | Node.js + Express.js | `3001` |
-| ML Service | Python + FastAPI + Uvicorn | `8000` |
-| Database | PostgreSQL | `5432` |
+| Frontend | React 19 + Vite + TypeScript + Zustand + React Query + Recharts | `5173` |
+| Backend | Node.js + Express 5 + PostgreSQL (pg) + Multer | `3001` |
+| ML Service | Python 3.10+ + FastAPI + Uvicorn + PyTorch + Transformers | `8000` |
+| Database | PostgreSQL 14+ | `5432` |
 
 ---
 
-## ✅ Prasyarat (Yang Harus Disiapkan Dulu)
+## 📄 Format CSV yang Didukung
 
-Sebelum mulai, pastikan kamu sudah menginstall semua ini di komputer:
+Aplikasi dioptimalkan untuk file CSV hasil ekspor **IG Lead Scrapper** atau scraper serupa dengan kolom-kolom berikut (tidak sensitif huruf besar/kecil):
+
+| Kolom CSV | Wajib? | Keterangan |
+|---|---|---|
+| `commentText` (atau `text`, `comment`) | **Ya** | Teks komentar (baris kosong akan otomatis dilewati) |
+| `userName` (atau `user`) | Opsional | Username akun yang berkomentar |
+| `commentId` (atau `id`) | Opsional | ID unik komentar (digunakan untuk mendeteksi duplikat) |
+| `Date` (atau `date`, `timestamp`, `createdat`) | Opsional | Tanggal komentar (dinormalisasi ke ISO-8601) |
+| `userId` | Opsional | ID pengguna |
+| `profileUrl` | Opsional | URL profil pengguna |
+
+---
+
+## ✅ Prasyarat
+
+Pastikan software berikut sudah terinstall di komputer:
 
 | Tools | Versi Minimum | Cara Cek |
 |---|---|---|
@@ -65,11 +84,9 @@ Sebelum mulai, pastikan kamu sudah menginstall semua ini di komputer:
 | **PostgreSQL** | 14+ | `psql --version` |
 | **Git** | terbaru | `git --version` |
 
-> 💡 **Belum punya?** Download di: [Node.js](https://nodejs.org) · [Python](https://python.org) · [PostgreSQL](https://postgresql.org)
-
 ---
 
-## 🚀 Panduan Setup Lengkap (Step-by-Step)
+## 🚀 Panduan Setup Lengkap
 
 ### Langkah 1 — Clone Repository
 
@@ -78,300 +95,191 @@ git clone https://github.com/username/media-comment-insight-analyzer.git
 cd media-comment-insight-analyzer
 ```
 
-Setelah ini, struktur folder kamu akan terlihat seperti ini:
-
+Struktur folder:
 ```
 media-comment-insight-analyzer/
-├── frontend/        ← Kode tampilan (React)
-├── backend/         ← Kode server (Node.js + Express)
-├── ml-service/      ← Kode AI/analisis (Python + FastAPI)
-└── database/        ← File SQL untuk membuat tabel
+├── frontend/        ← Aplikasi React + TypeScript
+├── backend/         ← REST API Express + CsvImportService
+├── ml-service/      ← Service AI FastAPI (IndoBERT, BERTopic, TF-IDF)
+└── database/        ← File migrasi SQL (001 - 007)
 ```
 
 ---
 
-### Langkah 2 — Buat Database PostgreSQL
+### Langkah 2 — Setup Database PostgreSQL
 
-> **Apa itu database?** Tempat penyimpanan permanen untuk semua data aplikasi (hasil analisis, postingan, dll).
-
-**Buka terminal** dan jalankan perintah berikut:
+Buka terminal dan buat database baru:
 
 ```bash
-# Masuk ke PostgreSQL sebagai user postgres
 psql -U postgres
-
-# Di dalam psql, buat database baru
 CREATE DATABASE insight_analyzer;
-
-# Keluar dari psql
 \q
 ```
 
-Verifikasi database sudah terbuat:
-
-```bash
-psql -U postgres -l
-# Pastikan "insight_analyzer" ada di daftar
-```
-
 ---
 
-### Langkah 3 — Setup Backend (Node.js + Express)
-
-Backend adalah "otak" server — menerima request dari frontend, memvalidasi data, dan menghubungkan semua komponen.
+### Langkah 3 — Setup Backend (Node.js)
 
 #### 3a. Install dependensi backend
-
 ```bash
 cd backend
 npm install
 ```
 
-#### 3b. Buat file konfigurasi `.env`
-
-File `.env` berisi informasi rahasia (password, secret key) yang **tidak boleh** diupload ke GitHub.
-
+#### 3b. Konfigurasi file `.env`
+Salin file `.env.example`:
 ```bash
-# Salin file contoh
 cp .env.example .env
 ```
 
-Kemudian **buka file `.env`** dan sesuaikan isinya:
-
+Sesuaikan konfigurasi pada file `backend/.env`:
 ```env
-# ─── Server ──────────────────────────────────────────────
 PORT=3001
 FRONTEND_URL=http://localhost:5173
 
-# ─── Database ────────────────────────────────────────────
-# Ganti "yourpassword" dengan password PostgreSQL kamu
+# Ganti dengan password PostgreSQL Anda
 DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/insight_analyzer
 DATABASE_SSL=false
 
-# ─── Auth ────────────────────────────────────────────────
-# Ganti dengan string acak yang panjang (min 32 karakter)
-JWT_SECRET=ganti_dengan_string_rahasia_yang_sangat_panjang_min32
-# Ini adalah password untuk login ke aplikasi
+# Keamanan auth
+JWT_SECRET=rahasia_jwt_anda_yang_panjang_minimal_32_karakter
 ADMIN_PASSWORD=passwordAdminKamu
 
-# ─── ML Service ──────────────────────────────────────────
+# ML Service
 ML_SERVICE_URL=http://localhost:8000
-
-# ─── Mode Development (tanpa API asli) ───────────────────
-USE_MOCK_SERVICE=true   # ← Biarkan "true" dulu saat belajar
-
-# ─── Instagram & TikTok API (opsional dulu) ──────────────
-IG_ACCESS_TOKEN=
-IG_USER_ID=
-TIKTOK_CLIENT_KEY=
-TIKTOK_CLIENT_SECRET=
 ```
 
-> ⚠️ **Penting:** Jangan pernah mengisi `IG_ACCESS_TOKEN` dsb. jika kamu belum punya token resmi. Biarkan kosong dan gunakan `USE_MOCK_SERVICE=true`.
-
-#### 3c. Jalankan migrasi database
-
-Migrasi = membuat tabel-tabel yang dibutuhkan di dalam database.
-
+#### 3c. Jalankan Migrasi Database
+Migrasi akan membuat seluruh tabel yang dibutuhkan (termasuk migrasi 006 & 007 untuk metadata import CSV dan tracking data yang dilewati):
 ```bash
-# Masih di folder backend/
 npm run migrate
 ```
 
-Jika berhasil, output-nya akan menampilkan:
+Output:
 ```
-✓ Migration 001_create_posts.sql applied
-✓ Migration 002_create_analyses.sql applied
-✓ Migration 003_create_comments.sql applied
-✓ Migration 004_create_keywords.sql applied
-✓ Migration 005_create_topics.sql applied
+✓ 001_create_posts.sql applied
+✓ 002_create_analyses.sql applied
+✓ 003_create_comments.sql applied
+✓ 004_create_keywords.sql applied
+✓ 005_create_topics.sql applied
+✓ 006_add_posts_import_meta.sql applied
+✓ 007_add_comments_skip_meta.sql applied
 All migrations applied successfully.
 ```
 
-Tabel yang dibuat:
-- `posts` — menyimpan URL postingan yang dianalisis
-- `analyses` — menyimpan hasil analisis (sentimen, topik, dll)
-- `comments` — menyimpan komentar yang diambil
-- `keywords` — menyimpan kata kunci yang ditemukan
-- `topics` — menyimpan hasil pengelompokan topik
-
-#### 3d. Jalankan server backend
-
+#### 3d. Jalankan Backend
 ```bash
 npm run dev
 ```
-
-✅ Backend berjalan di **http://localhost:3001**
+Backend berjalan di: **http://localhost:3001**
 
 ---
 
 ### Langkah 4 — Setup ML Service (Python + FastAPI)
 
-ML Service adalah komponen yang menjalankan model AI untuk menganalisis teks komentar.
-
-#### 4a. Buat Virtual Environment Python
-
-> **Apa itu virtual environment?** Ruang terisolasi agar instalasi library Python untuk proyek ini tidak bentrok dengan proyek lain.
-
+#### 4a. Buat & Aktifkan Virtual Environment
 ```bash
-# Pindah ke folder ml-service
 cd ../ml-service
-
-# Buat virtual environment
 python -m venv venv
-```
 
-#### 4b. Aktifkan virtual environment
-
-```bash
-# Windows (Command Prompt / PowerShell)
+# Windows (Command Prompt / PowerShell):
 venv\Scripts\activate
 
-# Mac / Linux
+# Linux / macOS:
 source venv/bin/activate
 ```
 
-Setelah aktif, kamu akan melihat `(venv)` di awal baris terminal.
-
-#### 4c. Install dependensi Python
-
+#### 4b. Install Dependensi Python
 ```bash
 pip install -r requirements.txt
 ```
 
-> ⏳ Proses ini bisa memakan waktu 5–15 menit tergantung kecepatan internet karena ada banyak library AI yang diinstall.
-
-#### 4d. Jalankan ML Service
-
+#### 4c. Jalankan ML Service
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
+ML Service berjalan di: **http://localhost:8000** (Dokumentasi Swagger API di: http://localhost:8000/docs)
 
-> ⚠️ **Peringatan:** Saat pertama kali dijalankan, ML Service akan **mendownload model NLP (~500 MB)**. Pastikan koneksi internet stabil dan tunggu hingga selesai sebelum mencoba analisis.
-
-✅ ML Service berjalan di **http://localhost:8000**
-
-Cek apakah ML Service berjalan dengan membuka: [http://localhost:8000/docs](http://localhost:8000/docs)
+> 💡 *Pada kali pertama dijalankan, library NLP akan mengunduh bobot model pretrained. Pastikan koneksi internet aktif.*
 
 ---
 
 ### Langkah 5 — Setup Frontend (React + Vite)
 
-Frontend adalah tampilan yang dilihat pengguna di browser.
-
+Buka terminal baru:
 ```bash
-# Pindah ke folder frontend
-cd ../frontend
-
-# Install dependensi
+cd frontend
 npm install
-
-# Jalankan development server
 npm run dev
 ```
-
-✅ Frontend berjalan di **http://localhost:5173**
-
----
-
-### Langkah 6 — Akses Aplikasi
-
-Buka browser dan akses: **http://localhost:5173**
-
-1. Akan muncul halaman **Login** — masukkan password yang kamu set di `ADMIN_PASSWORD`
-2. Setelah login, kamu bisa memasukkan URL postingan Instagram/TikTok
-3. Klik **Analisis** dan tunggu hasilnya
-
-> 💡 Saat `USE_MOCK_SERVICE=true`, data yang ditampilkan adalah data tiruan (simulasi), bukan data nyata dari Instagram/TikTok. Ini berguna untuk belajar dan testing tanpa perlu token API.
+Frontend berjalan di: **http://localhost:5173**
 
 ---
 
-## 🔄 Alur Kerja Sistem (Bagaimana Data Mengalir)
+### Langkah 6 — Penggunaan Aplikasi
 
-Berikut perjalanan data dari input URL hingga muncul di layar:
-
-```
-1. [User] Memasukkan URL postingan di form
-         ↓
-2. [Frontend] Mengirim request: POST /api/posts/analyze
-         ↓
-3. [Backend] Memeriksa token login (JWT)
-         ↓
-4. [Backend] Menyimpan URL ke tabel `posts`
-         ↓
-5. [Backend → ML Service] Mengirim request analisis
-         ↓
-6. [ML Service] Mengambil komentar (real/mock)
-         ↓
-7. [ML Service] Menjalankan 3 model AI:
-   ├── IndoBERT  → Analisis Sentimen (positif/negatif/netral)
-   ├── BERTopic  → Pengelompokan Topik
-   └── TF-IDF    → Ekstraksi Kata Kunci
-         ↓
-8. [ML Service → Backend] Mengembalikan hasil JSON
-         ↓
-9. [Backend] Menyimpan hasil ke tabel `analyses`
-         ↓
-10. [Backend → Frontend] Mengirim response JSON
-         ↓
-11. [Frontend] Menampilkan grafik & visualisasi hasil
-```
+1. Buka browser di **http://localhost:5173**.
+2. Masuk menggunakan password admin yang ditentukan pada `ADMIN_PASSWORD`.
+3. Buka menu **Import CSV** pada sidebar:
+   - Pilih platform (Instagram atau TikTok).
+   - Masukkan URL postingan sumber.
+   - Drag & drop atau pilih file `.csv` dari komputer.
+   - Klik **Preview CSV**.
+4. Sistem akan menampilkan statistik:
+   - Total baris yang dibaca.
+   - Jumlah baris valid.
+   - Jumlah baris dilewati (beserta tabel detail alasan: teks kosong atau duplikat ID).
+   - Preview tabel baris komentar yang siap diproses.
+5. Klik **Konfirmasi & Analisis** untuk memulai proses analisis AI.
+6. Pantau progres secara real-time hingga selesai, lalu klik **Lihat Hasil Analisis** untuk melihat grafik sentimen, topik, kata kunci, dan penjelajah komentar.
 
 ---
 
 ## 🛠️ Menjalankan Semua Service Sekaligus
 
-Kamu perlu membuka **3 terminal** secara bersamaan:
+Buka **3 terminal** terpisah:
 
-| Terminal | Folder | Perintah |
+| Terminal | Folder | Perintah | Fungsi |
+|---|---|---|---|
+| Terminal 1 | `backend/` | `npm run dev` | REST API Server |
+| Terminal 2 | `ml-service/` | `uvicorn app.main:app --reload --port 8000` | ML Analysis Engine |
+| Terminal 3 | `frontend/` | `npm run dev` | Web Interface |
+
+---
+
+## 📜 Ringkasan Endpoint API Backend
+
+### Autentikasi
+| Method | Endpoint | Deskripsi |
 |---|---|---|
-| Terminal 1 | `backend/` | `npm run dev` |
-| Terminal 2 | `ml-service/` | `uvicorn app.main:app --reload --port 8000` |
-| Terminal 3 | `frontend/` | `npm run dev` |
+| `POST` | `/api/auth/login` | Login admin (mengembalikan token JWT) |
+| `GET` | `/api/auth/me` | Memeriksa status sesi login |
 
----
+### CSV Import
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| `POST` | `/api/imports/preview` | Upload file CSV (max 10MB), parsing, validasi, cleaning, dan menghasilkan token import |
+| `POST` | `/api/imports/confirm` | Konfirmasi token import dan menjalankan pipeline analisis AI secara asinkron |
 
-## 🧪 Mode Development (Tanpa API Asli)
+### Analisis & Hasil
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| `GET` | `/api/analyses` | Daftar riwayat analisis dengan pagination, pencarian, dan filter |
+| `GET` | `/api/analyses/:id` | Detail lengkap analisis (postingan, sentimen, topik, kata kunci, insight) |
+| `GET` | `/api/analyses/:id/comments` | Penjelajah komentar per analisis dengan pencarian & filter sentimen |
+| `POST` | `/api/analyses/:id/reanalyze` | Menjalankan ulang analisis ML dari komentar yang tersimpan di database |
+| `DELETE` | `/api/analyses/:id` | Menghapus data analisis |
 
-Untuk belajar dan testing **tanpa** perlu token Instagram/TikTok, gunakan mode mock:
-
-```env
-# Di file backend/.env
-USE_MOCK_SERVICE=true
-```
-
-Dengan mode ini:
-- ✅ Komentar diganti dengan data tiruan yang realistis
-- ✅ Analisis tetap berjalan normal
-- ✅ Tidak perlu daftar ke Instagram/TikTok API
-- ❌ Data tidak mencerminkan postingan nyata
-
----
-
-## 🔑 Mendapatkan API Token (Opsional)
-
-Jika kamu sudah siap menggunakan data nyata dari media sosial:
-
-### Instagram Graph API
-1. Daftar di [developers.facebook.com](https://developers.facebook.com/)
-2. Buat aplikasi baru → tambahkan produk **Instagram**
-3. Dapatkan **Long-lived User Access Token**
-4. Isi di `backend/.env`:
-   ```env
-   IG_ACCESS_TOKEN=token_kamu_di_sini
-   IG_USER_ID=id_akun_instagram_kamu
-   ```
-
-### TikTok Research API
-1. Daftar di [developers.tiktok.com](https://developers.tiktok.com/)
-2. Ajukan permohonan **Research API** (butuh persetujuan)
-3. Setelah disetujui, isi di `backend/.env`:
-   ```env
-   TIKTOK_CLIENT_KEY=client_key_kamu
-   TIKTOK_CLIENT_SECRET=client_secret_kamu
-   ```
-
-> ⚠️ Setelah mengisi token nyata, ubah `USE_MOCK_SERVICE=false`
+### Dashboard Agregat
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| `GET` | `/api/dashboard/summary` | KPI total postingan, komentar, dan distribusi sentimen agregat |
+| `GET` | `/api/dashboard/sentiment` | Agregasi persentase sentimen |
+| `GET` | `/api/dashboard/trends` | Tren sentimen harian |
+| `GET` | `/api/dashboard/topics` | Top topik lintas postingan |
+| `GET` | `/api/dashboard/keywords` | Top kata kunci lintas postingan |
+| `GET` | `/api/dashboard/platform` | Distribusi postingan & komentar per platform |
+| `GET` | `/api/dashboard/recent` | Daftar analisis terbaru |
 
 ---
 
@@ -379,112 +287,39 @@ Jika kamu sudah siap menggunakan data nyata dari media sosial:
 
 ```
 media-comment-insight-analyzer/
+├── frontend/
+│   ├── src/
+│   │   ├── api/                 # Klien API terpusat (axios)
+│   │   ├── components/layout/   # Sidebar, layout
+│   │   ├── pages/               # Dashboard, ImportCsv, AnalysisHistory, AnalysisDetail, Login
+│   │   ├── store/               # Zustand authStore
+│   │   ├── types/               # TypeScript interface terpusat
+│   │   ├── App.tsx              # React router configuration
+│   │   └── index.css            # Desain sistem & utilitas global
+│   └── package.json
 │
-├── frontend/                    ← Kode React (tampilan)
-│   └── src/
-│       ├── pages/               ← Halaman-halaman aplikasi
-│       ├── components/          ← Komponen UI reusable
-│       ├── api/                 ← Fungsi pemanggilan API
-│       └── stores/              ← State management (Zustand)
+├── backend/
+│   ├── src/
+│   │   ├── app.js               # Inisialisasi Express & routing
+│   │   ├── controllers/         # Handler route (imports, analyses, posts, auth, dashboard)
+│   │   ├── services/            # CsvImportService, AnalysisService, PostService, CommentService
+│   │   ├── routes/              # Definisi route express (imports.routes.js, analyses.routes.js, dsb.)
+│   │   ├── middleware/          # JWT auth middleware, error handling
+│   │   └── scripts/migrate.js   # Script runner migrasi database
+│   └── package.json
 │
-├── backend/                     ← Kode Node.js (server)
-│   └── src/
-│       ├── app.js               ← Entry point Express
-│       ├── routes/              ← Definisi endpoint API
-│       │   ├── auth.routes.js
-│       │   ├── posts.routes.js
-│       │   ├── analyses.routes.js
-│       │   └── dashboard.routes.js
-│       ├── controllers/         ← Logika request/response
-│       ├── services/            ← Logika bisnis
-│       ├── middleware/          ← Auth JWT, error handler
-│       └── config/              ← Konfigurasi env, database
+├── ml-service/
+│   ├── app/
+│   │   ├── main.py              # Inisialisasi FastAPI
+│   │   ├── routers/analyze.py   # Endpoint /analyze
+│   │   ├── models/loader.py     # Loader model IndoBERT, BERTopic, TF-IDF
+│   │   └── services/            # Preprocessing teks, ekstraksi insight
+│   └── requirements.txt
 │
-├── ml-service/                  ← Kode Python (AI/analisis)
-│   └── app/
-│       ├── main.py              ← Entry point FastAPI
-│       ├── routers/             ← Endpoint ML (analisis)
-│       ├── models/              ← Load model NLP
-│       └── services/            ← Logika fetch komentar
-│
-└── database/                    ← File SQL
-    ├── run_migrations.sql        ← Script jalankan semua migrasi
-    └── migrations/              ← File migrasi per tabel
-        ├── 001_create_posts.sql
-        ├── 002_create_analyses.sql
-        ├── 003_create_comments.sql
-        ├── 004_create_keywords.sql
-        └── 005_create_topics.sql
+└── database/
+    └── migrations/              # Script migrasi SQL 001 s.d. 007
 ```
 
 ---
 
-## 🧰 Tech Stack Lengkap
-
-| Layer | Teknologi | Fungsi |
-|---|---|---|
-| **Frontend UI** | React 19, Vite, TypeScript | Tampilan antarmuka pengguna |
-| **Styling** | Vanilla CSS + CSS Variables | Desain dan layout |
-| **State Management** | Zustand + React Query | Mengelola data dan cache di frontend |
-| **Grafik** | Recharts | Visualisasi hasil analisis |
-| **Backend** | Node.js, Express.js | Server, REST API, routing |
-| **Database** | PostgreSQL (raw SQL) | Penyimpanan data permanen |
-| **ML Service** | Python, FastAPI, Uvicorn | API untuk model AI |
-| **Analisis Sentimen** | IndoBERT | Klasifikasi positif/negatif/netral |
-| **Topic Modeling** | BERTopic | Pengelompokan topik komentar |
-| **Keyword Extraction** | TF-IDF | Menemukan kata kunci penting |
-| **Autentikasi** | JWT (JSON Web Token) | Login admin single-user |
-
----
-
-## ❗ Troubleshooting (Solusi Masalah Umum)
-
-### ❌ `ECONNREFUSED 5432` — Database tidak bisa diakses
-```
-Penyebab: PostgreSQL belum berjalan atau password salah
-Solusi:
-  1. Pastikan PostgreSQL sudah distart
-  2. Periksa kembali DATABASE_URL di backend/.env
-  3. Pastikan database "insight_analyzer" sudah dibuat
-```
-
-### ❌ `MODULE_NOT_FOUND` — Modul Node.js tidak ditemukan
-```
-Penyebab: npm install belum dijalankan
-Solusi: Jalankan "npm install" di folder backend/ dan frontend/
-```
-
-### ❌ ML Service error saat pertama dijalankan
-```
-Penyebab: Model AI (~500 MB) masih didownload
-Solusi: Tunggu hingga download selesai, jangan matikan terminal
-```
-
-### ❌ Login gagal terus
-```
-Penyebab: ADMIN_PASSWORD di .env tidak sesuai
-Solusi: Periksa kembali nilai ADMIN_PASSWORD di backend/.env
-```
-
-### ❌ Analisis tidak muncul hasilnya
-```
-Penyebab: ML Service belum berjalan
-Solusi: Pastikan terminal ML Service aktif di port 8000
-         Cek: http://localhost:8000/docs
-```
-
----
-
-## 📜 Endpoint API Backend
-
-| Method | Endpoint | Fungsi |
-|---|---|---|
-| `POST` | `/api/auth/login` | Login admin |
-| `POST` | `/api/posts/analyze` | Analisis postingan baru |
-| `GET` | `/api/posts` | Daftar semua postingan |
-| `GET` | `/api/analyses/:id` | Detail hasil analisis |
-| `GET` | `/api/dashboard` | Data ringkasan dashboard |
-
----
-
-*Dibuat untuk keperluan analisis komentar media sosial berbahasa Indonesia.*
+*Dibuat untuk analisis komentar media sosial berbahasa Indonesia berbasis data ekspor CSV.*
