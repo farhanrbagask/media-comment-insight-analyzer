@@ -1,4 +1,4 @@
-# 📊 Media Comment Insight Analyzer
+#  Media Comment Insight Analyzer
 
 > Aplikasi web untuk menganalisis komentar media sosial (Instagram & TikTok) dari file CSV hasil ekspor tools scraping (seperti **IG Lead Scrapper**), secara otomatis menggunakan AI — mencakup analisis sentimen berbahasa Indonesia, pengelompokan topik, ekstraksi kata kunci, hingga ringkasan insight dan dashboard analitik.
 
@@ -20,7 +20,7 @@ Menganalisis ratusan hingga ribuan komentar media sosial secara manual tentu mem
 
 ---
 
-## 🏗️ Arsitektur Sistem
+##  Arsitektur Sistem
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -72,7 +72,7 @@ Aplikasi dioptimalkan untuk file CSV hasil ekspor **IG Lead Scrapper** atau scra
 
 ---
 
-## ✅ Prasyarat
+##  Prasyarat
 
 Pastikan software berikut sudah terinstall di komputer:
 
@@ -86,7 +86,7 @@ Pastikan software berikut sudah terinstall di komputer:
 
 ---
 
-## 🚀 Panduan Setup Lengkap
+##  Panduan Setup Lengkap
 
 ### Langkah 1 — Clone Repository
 
@@ -200,7 +200,7 @@ uvicorn app.main:app --reload --port 8000
 ```
 ML Service berjalan di: **http://localhost:8000** (Dokumentasi Swagger API di: http://localhost:8000/docs)
 
-> 💡 *Pada kali pertama dijalankan, library NLP akan mengunduh bobot model pretrained. Pastikan koneksi internet aktif.*
+>  *Pada kali pertama dijalankan, library NLP akan mengunduh bobot model pretrained. Pastikan koneksi internet aktif.*
 
 ---
 
@@ -247,7 +247,7 @@ Buka **3 terminal** terpisah:
 
 ---
 
-## 📜 Ringkasan Endpoint API Backend
+##  Ringkasan Endpoint API Backend
 
 ### Autentikasi
 | Method | Endpoint | Deskripsi |
