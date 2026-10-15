@@ -5,10 +5,11 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 
 const { errorMiddleware } = require('./middleware/error.middleware');
-const postsRoutes = require('./routes/posts.routes');
+const postsRoutes    = require('./routes/posts.routes');
 const analysesRoutes = require('./routes/analyses.routes');
-const dashboardRoutes = require('./routes/dashboard.routes');
-const authRoutes = require('./routes/auth.routes');
+const dashboardRoutes= require('./routes/dashboard.routes');
+const authRoutes     = require('./routes/auth.routes');
+const importsRoutes  = require('./routes/imports.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -24,10 +25,11 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
-app.use('/api/posts', postsRoutes);
-app.use('/api/analyses', analysesRoutes);
+app.use('/api/auth',      authRoutes);
+app.use('/api/posts',     postsRoutes);
+app.use('/api/analyses',  analysesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/imports',   importsRoutes);
 
 // ─── Health Check ────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

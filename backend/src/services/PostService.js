@@ -21,16 +21,21 @@ const create = async (postData) => {
   const {
     platform, platformPostId, url, author, caption,
     publishedAt, likeCount, commentCount, thumbnailUrl,
+    importSource, importedFilename,
   } = postData;
 
   const { rows } = await db.query(
     `INSERT INTO posts
        (platform, platform_post_id, url, author, caption,
-        published_at, like_count, comment_count, thumbnail_url)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        published_at, like_count, comment_count, thumbnail_url,
+        import_source, imported_filename)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
-    [platform, platformPostId, url, author, caption,
-     publishedAt, likeCount || 0, commentCount || 0, thumbnailUrl]
+    [
+      platform, platformPostId, url, author ?? null, caption ?? null,
+      publishedAt ?? null, likeCount || 0, commentCount || 0, thumbnailUrl ?? null,
+      importSource || 'csv', importedFilename || null,
+    ]
   );
   return rows[0];
 };

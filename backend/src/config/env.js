@@ -7,7 +7,7 @@ const required = ['DATABASE_URL', 'JWT_SECRET', 'ADMIN_PASSWORD'];
 
 required.forEach((key) => {
   if (!process.env[key]) {
-    throw new Error(`❌  Missing required environment variable: ${key}`);
+    throw new Error(`Missing required environment variable: ${key}`);
   }
 });
 
