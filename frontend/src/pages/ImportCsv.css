@@ -1,0 +1,171 @@
+/* ─── ImportCsv.css ──────────────────────────────────────────────────────── */
+/* Component-specific styles for the CSV import page.                        */
+/* Shared base styles (cards, buttons, badges, inputs) live in index.css.    */
+
+/* ─── Drop zone ─────────────────────────────────────────────────────────── */
+
+.import-dropzone {
+  border: 2px dashed var(--color-border-hover);
+  border-radius: var(--radius-md);
+  padding: 32px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+  background: var(--color-surface-2);
+  margin-bottom: 20px;
+}
+
+.import-dropzone:hover,
+.import-dropzone.dragover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-dim);
+}
+
+.import-dropzone.has-file {
+  border-style: solid;
+  border-color: var(--color-accent);
+  background: var(--color-accent-dim);
+}
+
+.import-dropzone-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-secondary);
+}
+
+.import-file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+
+/* ─── Form rows ─────────────────────────────────────────────────────────── */
+
+.import-form-row {
+  margin-bottom: 16px;
+}
+
+/* ─── Platform picker ────────────────────────────────────────────────────── */
+
+.import-platform-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.import-platform-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-border-hover);
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), color var(--transition);
+}
+
+.import-platform-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.import-platform-btn.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-dim);
+  color: var(--color-accent-light);
+}
+
+/* ─── Error banner ───────────────────────────────────────────────────────── */
+
+.import-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--color-negative-dim);
+  border: 1px solid var(--color-negative);
+  border-radius: var(--radius-sm);
+  color: var(--color-negative);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* ─── Format hint ────────────────────────────────────────────────────────── */
+
+.import-format-hint {
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  line-height: 1.8;
+}
+
+/* ─── Summary grid ───────────────────────────────────────────────────────── */
+
+.import-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.import-summary-card {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px solid;
+  text-align: center;
+}
+
+.import-summary-value {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.import-summary-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ─── Skipped rows ───────────────────────────────────────────────────────── */
+
+.import-skipped {
+  margin-top: 16px;
+}
+
+.import-skipped-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  padding: 4px 0;
+  transition: color var(--transition);
+}
+
+.import-skipped-toggle:hover {
+  color: var(--color-text-primary);
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .import-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .import-platform-group {
+    flex-direction: column;
+  }
+}
