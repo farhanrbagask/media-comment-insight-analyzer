@@ -9,14 +9,21 @@ LABEL_MAP = {
     "LABEL_0": "negative",
     "LABEL_1": "neutral",
     "LABEL_2": "positive",
-    # lxyuan model labels
+    # lxyuan model labels (English)
     "negative": "negative",
     "neutral": "neutral",
     "positive": "positive",
-    # Some models use these
+    # Some models use uppercase
     "NEGATIVE": "negative",
     "NEUTRAL": "neutral",
     "POSITIVE": "positive",
+    # Custom fine-tuned model labels (Bahasa Indonesia)
+    "negatif": "negative",
+    "netral": "neutral",
+    "positif": "positive",
+    "NEGATIF": "negative",
+    "NETRAL": "neutral",
+    "POSITIF": "positive",
 }
 
 def analyze_sentiment(processed_texts: List[str]) -> List[Dict]:
