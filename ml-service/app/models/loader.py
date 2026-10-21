@@ -32,10 +32,10 @@ class ModelLoader:
     def _load_sentiment(cls):
         """
         Load sentiment classification model.
-        Primary:  mdhuggins/indobert-sentiment
+        primary = "./my-indobert-sentiment"
         Fallback: lxyuan/distilbert-base-multilingual-cased-sentiments-student
         """
-        primary = "mdhuggins/indobert-sentiment"
+        primary = "./my-indobert-sentiment"
         fallback = "lxyuan/distilbert-base-multilingual-cased-sentiments-student"
 
         for model_id in (primary, fallback):
