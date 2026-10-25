@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import Sidebar from './components/layout/Sidebar'
 import Dashboard from './pages/Dashboard'
-import AnalyzePost from './pages/AnalyzePost'
+import ImportCsv from './pages/ImportCsv'
 import AnalysisHistory from './pages/AnalysisHistory'
 import AnalysisDetail from './pages/AnalysisDetail'
 import Login from './pages/Login'
@@ -13,11 +13,11 @@ function ProtectedLayout() {
       <Sidebar />
       <div className="main-content">
         <Routes>
-          <Route path="/"          element={<Dashboard />} />
-          <Route path="/analyze"   element={<AnalyzePost />} />
-          <Route path="/history"   element={<AnalysisHistory />} />
-          <Route path="/analysis/:id" element={<AnalysisDetail />} />
-          <Route path="*"          element={<Navigate to="/" replace />} />
+          <Route path="/"             element={<Dashboard />}      />
+          <Route path="/import"       element={<ImportCsv />}      />
+          <Route path="/history"      element={<AnalysisHistory />} />
+          <Route path="/analysis/:id" element={<AnalysisDetail />}  />
+          <Route path="*"             element={<Navigate to="/" replace />} />
         </Routes>
       </div>
     </div>
