@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, Trash2, ExternalLink, ChevronUp, ChevronDown } from 'lucide-react'
 import { analysesApi } from '../api'
 import { format } from 'date-fns'
-import './AnalysisHistory.css'
+
+/* ─── Sub-components ───────────────────────────────────────────────────── */
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -22,8 +23,8 @@ function DeleteModal({ id, onConfirm, onCancel }: { id: number; onConfirm: () =>
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Delete Analysis?</h2>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, marginBottom: 24, lineHeight: 1.6 }}>
+        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 22, fontWeight: 600, marginBottom: 10, color: 'var(--color-text-primary)' }}>Delete Analysis?</h2>
+        <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, marginBottom: 28, lineHeight: 1.7, letterSpacing: '0.01em' }}>
           This will permanently remove the analysis result and all associated comments, keywords, and topics. This action cannot be undone.
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -34,6 +35,8 @@ function DeleteModal({ id, onConfirm, onCancel }: { id: number; onConfirm: () =>
     </div>
   )
 }
+
+/* ─── Main Component ───────────────────────────────────────────────────── */
 
 export default function AnalysisHistory() {
   const navigate = useNavigate()
@@ -80,7 +83,7 @@ export default function AnalysisHistory() {
 
   const SortIcon = ({ col }: { col: string }) => {
     if (sortBy !== col) return null
-    return sortOrder === 'asc' ? <ChevronUp size={13} /> : <ChevronDown size={13} />
+    return sortOrder === 'asc' ? <ChevronUp size={12} strokeWidth={2} /> : <ChevronDown size={12} strokeWidth={2} />
   }
 
   const analyses = data?.data || []
@@ -93,8 +96,8 @@ export default function AnalysisHistory() {
           <h1 className="page-title">Analysis History</h1>
           <p className="page-subtitle">All posts you've analyzed</p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/analyze')}>
-          + Analyze New Post
+        <button className="btn btn-primary" onClick={() => navigate('/import')}>
+          + Import CSV
         </button>
       </div>
 
@@ -102,7 +105,7 @@ export default function AnalysisHistory() {
       <div className="card card-sm mb-4">
         <div className="filter-bar">
           <div className="search-bar" style={{ flex: 1, maxWidth: 340 }}>
-            <Search size={15} className="search-icon" />
+            <Search size={14} strokeWidth={1.8} className="search-icon" />
             <input
               className="input"
               style={{ paddingLeft: 38 }}
@@ -165,7 +168,7 @@ export default function AnalysisHistory() {
               [...Array(5)].map((_, i) => (
                 <tr key={i}>
                   {[...Array(7)].map((_, j) => (
-                    <td key={j}><div className="skeleton" style={{ height: 16, borderRadius: 4 }} /></td>
+                    <td key={j}><div className="skeleton" style={{ height: 14, borderRadius: 3 }} /></td>
                   ))}
                 </tr>
               ))
@@ -177,9 +180,9 @@ export default function AnalysisHistory() {
                   <div className="empty-state">
                     <div className="empty-state-icon">📋</div>
                     <div className="empty-state-title">No analyses yet</div>
-                    <p style={{ fontSize: 13 }}>Start by analyzing a social media post URL.</p>
-                    <button className="btn btn-primary mt-4" onClick={() => navigate('/analyze')}>
-                      Analyze Your First Post
+                    <p style={{ fontSize: 13, letterSpacing: '0.01em' }}>Mulai dengan mengimport file CSV komentar.</p>
+                    <button className="btn btn-primary mt-4" onClick={() => navigate('/import')}>
+                      Import CSV Pertama
                     </button>
                   </div>
                 </td>
@@ -208,16 +211,16 @@ export default function AnalysisHistory() {
                     </div>
                   </div>
                 </td>
-                <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-text-primary)', fontFamily: 'var(--font-heading)', fontSize: 16 }}>
                   {(a.total_comments || 0).toLocaleString()}
                 </td>
                 <td>
                   {a.status === 'completed' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      <div style={{ fontSize: 11, color: 'var(--color-positive)' }}>
+                      <div style={{ fontSize: 11, color: 'var(--color-positive)', fontWeight: 600 }}>
                         +{parseFloat(a.positive_percentage || 0).toFixed(0)}% pos
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--color-negative)' }}>
+                      <div style={{ fontSize: 11, color: 'var(--color-negative)', fontWeight: 600 }}>
                         -{parseFloat(a.negative_percentage || 0).toFixed(0)}% neg
                       </div>
                     </div>
@@ -225,14 +228,14 @@ export default function AnalysisHistory() {
                 </td>
                 <td><StatusBadge status={a.status} /></td>
                 <td>
-                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                     <button
                       id={`view-${a.id}`}
                       className="btn btn-ghost btn-sm"
                       onClick={() => navigate(`/analysis/${a.id}`)}
                       title="View Analysis"
                     >
-                      <ExternalLink size={14} />
+                      <ExternalLink size={13} strokeWidth={1.5} />
                     </button>
                     <button
                       id={`delete-${a.id}`}
@@ -241,7 +244,7 @@ export default function AnalysisHistory() {
                       title="Delete"
                       style={{ color: 'var(--color-negative)' }}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} strokeWidth={1.5} />
                     </button>
                   </div>
                 </td>
