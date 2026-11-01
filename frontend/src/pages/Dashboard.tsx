@@ -11,20 +11,62 @@ import {
 } from 'lucide-react'
 import { dashboardApi } from '../api'
 import { format } from 'date-fns'
-import './Dashboard.css'
+
+/* ─── Palette (desaturated, luxurious) ──────────────────────────────────── */
 
 const SENTIMENT_COLORS = {
-  positive: '#22c55e',
-  neutral: '#f59e0b',
-  negative: '#ef4444',
+  positive: '#4A7C59',
+  neutral:  '#B8923E',
+  negative: '#9E4B4B',
 }
 
-// ─── Filter Bar ──────────────────────────────────────────────────────────────
+const CHART_TOOLTIP_STYLE = {
+  background: 'var(--color-surface)',
+  border: '0.5px solid var(--color-border)',
+  borderRadius: 8,
+  boxShadow: '0 4px 16px rgba(26,26,26,0.08)',
+  fontSize: 12,
+  fontFamily: 'var(--font-body)',
+}
+
+/* ─── Dashboard-specific styles ─────────────────────────────────────────── */
+
+const ds = {
+  row3: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr 1fr',
+    gap: '22px',
+  } as React.CSSProperties,
+  recentList: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '1px',
+  },
+  recentItem: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '14px 16px',
+    borderRadius: 'var(--radius-md)',
+    cursor: 'pointer',
+    transition: 'background 0.3s cubic-bezier(0.25,0.1,0.25,1)',
+    gap: '14px',
+  } as React.CSSProperties,
+  recentLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flex: 1,
+    minWidth: 0,
+  },
+}
+
+/* ─── Filter Bar ──────────────────────────────────────────────────────── */
 
 function DashboardFilters({ filters, onChange }: { filters: any; onChange: (f: any) => void }) {
   return (
     <div className="filter-bar">
-      <Filter size={15} style={{ color: 'var(--color-text-muted)' }} />
+      <Filter size={14} strokeWidth={1.8} style={{ color: 'var(--color-text-muted)' }} />
       <select
         className="filter-select"
         value={filters.platform || ''}
@@ -56,23 +98,23 @@ function DashboardFilters({ filters, onChange }: { filters: any; onChange: (f: a
   )
 }
 
-// ─── KPI Cards ────────────────────────────────────────────────────────────────
+/* ─── KPI Cards ────────────────────────────────────────────────────────── */
 
 function KpiCards({ data }: { data: any }) {
   const kpis = [
-    { label: 'Posts Analyzed',     value: data?.total_posts      ?? 0, color: 'var(--color-accent)',   icon: FileText },
-    { label: 'Comments Analyzed',  value: data?.total_comments   ?? 0, color: 'var(--color-accent-light)', icon: MessageSquare },
-    { label: 'Positive Comments',  value: data?.positive_comments ?? 0, color: 'var(--color-positive)', icon: TrendingUp },
-    { label: 'Neutral Comments',   value: data?.neutral_comments  ?? 0, color: 'var(--color-neutral)',  icon: Minus },
-    { label: 'Negative Comments',  value: data?.negative_comments ?? 0, color: 'var(--color-negative)', icon: TrendingDown },
+    { label: 'Posts Analyzed',    value: data?.total_posts      ?? 0, color: 'var(--color-accent)',   icon: FileText },
+    { label: 'Comments Analyzed', value: data?.total_comments   ?? 0, color: 'var(--color-accent-light)', icon: MessageSquare },
+    { label: 'Positive',          value: data?.positive_comments ?? 0, color: 'var(--color-positive)', icon: TrendingUp },
+    { label: 'Neutral',           value: data?.neutral_comments  ?? 0, color: 'var(--color-neutral)',  icon: Minus },
+    { label: 'Negative',          value: data?.negative_comments ?? 0, color: 'var(--color-negative)', icon: TrendingDown },
   ]
 
   return (
     <div className="grid-kpi mb-6">
       {kpis.map(({ label, value, color, icon: Icon }) => (
         <div key={label} className="kpi-card" style={{ '--kpi-color': color } as any}>
-          <div className="kpi-icon" style={{ background: `${color}20`, color }}>
-            <Icon size={18} />
+          <div className="kpi-icon" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-muted)' }}>
+            <Icon size={16} strokeWidth={1.8} />
           </div>
           <div className="kpi-label">{label}</div>
           <div className="kpi-value">{value.toLocaleString()}</div>
@@ -82,7 +124,7 @@ function KpiCards({ data }: { data: any }) {
   )
 }
 
-// ─── Sentiment Donut ──────────────────────────────────────────────────────────
+/* ─── Sentiment Donut ──────────────────────────────────────────────────── */
 
 function SentimentDonut({ data }: { data: any }) {
   const chartData = [
@@ -104,7 +146,7 @@ function SentimentDonut({ data }: { data: any }) {
           <div className="empty-state-title">No data yet</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
           <ResponsiveContainer width="50%" height={200}>
             <PieChart>
               <Pie data={chartData} cx="50%" cy="50%" innerRadius={55} outerRadius={85}
@@ -113,15 +155,18 @@ function SentimentDonut({ data }: { data: any }) {
                   <Cell key={i} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip formatter={(v: any) => v.toLocaleString()} />
+              <Tooltip
+                contentStyle={CHART_TOOLTIP_STYLE}
+                formatter={(v: any) => v.toLocaleString()}
+              />
             </PieChart>
           </ResponsiveContainer>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1 }}>
             {chartData.map(({ name, value, color }) => (
-              <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', flex: 1 }}>{name}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>
+              <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', flex: 1, letterSpacing: '0.01em' }}>{name}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', fontFamily: 'var(--font-heading)' }}>
                   {total > 0 ? `${((value / total) * 100).toFixed(1)}%` : '0%'}
                 </span>
               </div>
@@ -133,7 +178,7 @@ function SentimentDonut({ data }: { data: any }) {
   )
 }
 
-// ─── Sentiment Trend ──────────────────────────────────────────────────────────
+/* ─── Sentiment Trend ──────────────────────────────────────────────────── */
 
 function SentimentTrend({ data }: { data: any[] }) {
   const chartData = (data || []).map(d => ({
@@ -156,11 +201,11 @@ function SentimentTrend({ data }: { data: any[] }) {
       ) : (
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-            <XAxis dataKey="date" tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
-            <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
-            <Tooltip contentStyle={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 8 }} />
-            <Legend />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(26,26,26,0.06)" />
+            <XAxis dataKey="date" tick={{ fill: 'var(--color-text-muted)', fontSize: 11, fontFamily: 'var(--font-body)' }} />
+            <YAxis tick={{ fill: 'var(--color-text-muted)', fontSize: 11, fontFamily: 'var(--font-body)' }} />
+            <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+            <Legend wrapperStyle={{ fontSize: 12, fontFamily: 'var(--font-body)' }} />
             <Line type="monotone" dataKey="Positive" stroke={SENTIMENT_COLORS.positive} strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="Neutral"  stroke={SENTIMENT_COLORS.neutral}  strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="Negative" stroke={SENTIMENT_COLORS.negative} strokeWidth={2} dot={false} />
@@ -171,7 +216,7 @@ function SentimentTrend({ data }: { data: any[] }) {
   )
 }
 
-// ─── Bar Chart ────────────────────────────────────────────────────────────────
+/* ─── Bar Chart ────────────────────────────────────────────────────────── */
 
 function TopBarChart({ title, data, dataKey, nameKey, color }: any) {
   return (
@@ -186,11 +231,11 @@ function TopBarChart({ title, data, dataKey, nameKey, color }: any) {
       ) : (
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={data} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-            <XAxis type="number" tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} />
-            <YAxis type="category" dataKey={nameKey} tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} width={90} />
-            <Tooltip contentStyle={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: 8 }} />
-            <Bar dataKey={dataKey} fill={color} radius={[0, 4, 4, 0]} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(26,26,26,0.06)" horizontal={false} />
+            <XAxis type="number" tick={{ fill: 'var(--color-text-muted)', fontSize: 11, fontFamily: 'var(--font-body)' }} />
+            <YAxis type="category" dataKey={nameKey} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11, fontFamily: 'var(--font-body)' }} width={90} />
+            <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+            <Bar dataKey={dataKey} fill={color} radius={[0, 3, 3, 0]} />
           </BarChart>
         </ResponsiveContainer>
       )}
@@ -198,18 +243,18 @@ function TopBarChart({ title, data, dataKey, nameKey, color }: any) {
   )
 }
 
-// ─── Platform Distribution ────────────────────────────────────────────────────
+/* ─── Platform Distribution ────────────────────────────────────────────── */
 
 function PlatformDist({ data }: { data: any[] }) {
   const PLAT_COLORS: Record<string, string> = {
-    instagram: '#e1306c',
-    tiktok: '#69c9d0',
+    instagram: '#B04A6C',
+    tiktok: '#4A8E94',
   }
 
   const chartData = (data || []).map(d => ({
     name: d.platform.charAt(0).toUpperCase() + d.platform.slice(1),
     value: d.count,
-    color: PLAT_COLORS[d.platform] || '#818cf8',
+    color: PLAT_COLORS[d.platform] || '#7A8C6A',
   }))
 
   return (
@@ -222,21 +267,21 @@ function PlatformDist({ data }: { data: any[] }) {
           <div className="empty-state-title">No data yet</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
           <ResponsiveContainer width="55%" height={180}>
             <PieChart>
               <Pie data={chartData} cx="50%" cy="50%" outerRadius={75} dataKey="value" stroke="none">
                 {chartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
               </Pie>
-              <Tooltip />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
             </PieChart>
           </ResponsiveContainer>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {chartData.map(({ name, value, color }) => (
-              <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
-                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{name}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)' }}>{value}</span>
+              <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', letterSpacing: '0.01em' }}>{name}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-primary)', fontFamily: 'var(--font-heading)' }}>{value}</span>
               </div>
             ))}
           </div>
@@ -246,7 +291,7 @@ function PlatformDist({ data }: { data: any[] }) {
   )
 }
 
-// ─── Recent Analyses ──────────────────────────────────────────────────────────
+/* ─── Recent Analyses ──────────────────────────────────────────────────── */
 
 function RecentAnalyses({ data }: { data: any[] }) {
   const navigate = useNavigate()
@@ -260,13 +305,19 @@ function RecentAnalyses({ data }: { data: any[] }) {
         <div className="empty-state" style={{ padding: '24px 0' }}>
           <div className="empty-state-icon">📋</div>
           <div className="empty-state-title">No analyses yet</div>
-          <p style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Start by analyzing a social media post URL.</p>
+          <p style={{ fontSize: 13, color: 'var(--color-text-muted)', letterSpacing: '0.01em' }}>Start by importing a comments CSV file.</p>
         </div>
       ) : (
-        <div className="recent-list">
+        <div style={ds.recentList}>
           {data.map((a: any) => (
-            <div key={a.id} className="recent-item" onClick={() => navigate(`/analysis/${a.id}`)}>
-              <div className="recent-item-left">
+            <div
+              key={a.id}
+              style={ds.recentItem}
+              onClick={() => navigate(`/analysis/${a.id}`)}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-2)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+            >
+              <div style={ds.recentLeft}>
                 <span className={`badge badge-${a.platform}`}>
                   {a.platform === 'instagram' ? '📷' : '🎵'} {a.platform}
                 </span>
@@ -274,14 +325,14 @@ function RecentAnalyses({ data }: { data: any[] }) {
                   {a.author ? `@${a.author}` : a.url}
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <span style={{ fontSize: 12, color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)' }}>
                   {a.total_comments?.toLocaleString()} comments
                 </span>
-                <span style={{ fontSize: 12, color: 'var(--color-positive)' }}>
+                <span style={{ fontSize: 12, color: 'var(--color-positive)', fontWeight: 600 }}>
                   {parseFloat(a.positive_percentage || 0).toFixed(0)}% positive
                 </span>
-                <ExternalLink size={14} style={{ color: 'var(--color-text-muted)' }} />
+                <ExternalLink size={13} strokeWidth={1.5} style={{ color: 'var(--color-text-muted)' }} />
               </div>
             </div>
           ))}
@@ -291,7 +342,7 @@ function RecentAnalyses({ data }: { data: any[] }) {
   )
 }
 
-// ─── Main Dashboard Page ──────────────────────────────────────────────────────
+/* ─── Main Dashboard Page ──────────────────────────────────────────────── */
 
 export default function Dashboard() {
   const [filters, setFilters] = useState<any>({})
@@ -337,9 +388,9 @@ export default function Dashboard() {
       </div>
 
       {/* Row 2: Topics + Keywords + Platform */}
-      <div className="dashboard-row-3 mb-6">
+      <div style={ds.row3} className="mb-6">
         <TopBarChart title="Top Topics"   data={topicsForChart}   dataKey="total_frequency" nameKey="topic"   color="var(--color-accent)" />
-        <TopBarChart title="Top Keywords" data={keywordsForChart} dataKey="total_frequency" nameKey="keyword" color="#8b5cf6" />
+        <TopBarChart title="Top Keywords" data={keywordsForChart} dataKey="total_frequency" nameKey="keyword" color="#7A8C6A" />
         <PlatformDist data={platform || []} />
       </div>
 
